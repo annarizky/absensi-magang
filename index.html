@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presensi Magang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex justify-center items-center font-sans p-4">
+
+    <!-- Card Container -->
+    <div class="bg-white w-full max-w-sm p-8 rounded-2xl shadow-lg text-center">
+        
+        <!-- Header -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Absensi Magang</h2>
+            <p class="text-sm text-gray-500 mt-1">Dinas Pemadam Kebakaran Kota Semarang</p>
+        </div>
+        
+        <!-- Waktu Real-time -->
+        <div class="mb-6 border-b pb-6">
+            <h1 id="jam-realtime" class="text-4xl font-black text-slate-800 tracking-wider">00:00:00</h1>
+            <p id="tanggal-hari-ini" class="text-sm text-slate-500 mt-2">Tanggal</p>
+        </div>
+
+        <!-- FORM INPUT MANUAL -->
+        <div class="text-left mb-6 space-y-4">
+            
+            <!-- Input Nama -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
+                <input type="text" id="input-nama" placeholder="Contoh: Annarizky Nifa..." 
+                    class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
+            </div>
+
+            <!-- Input Instansi -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Asal Kampus / Sekolah</label>
+                <input type="text" id="input-instansi" placeholder="Contoh: Universitas Muhammadiyah Semarang..." 
+                    class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
+            </div>
+
+            <!-- Pilihan Jenis Absen -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Jenis Presensi</label>
+                <select id="input-jenis" class="w-full p-2.5 bg-blue-50 border border-blue-300 text-blue-900 font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
+                    <option value="Masuk">Masuk</option>
+                    <option value="Pulang">Pulang</option>
+                </select>
+            </div>
+
+        </div>
+
+        <!-- Status & Pesan Notifikasi -->
+        <div id="status-kehadiran" class="hidden p-3 rounded-lg mb-4 text-sm transition-colors duration-300 text-left"></div>
+
+        <!-- Tombol Absen -->
+        <button 
+            id="btn-absen" 
+            onclick="lakukanAbsen()"
+            class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            Kirim
+        </button>
+        
+    </div>
+
+    <!-- Logika JavaScript -->
+    <script>
+        // 1. Jam Realtime
+        function perbaruiWaktu() {
+            const waktu = new Date();
+            const jam = waktu.toLocaleTimeString('id-ID', { hour12: false });
+            const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const tanggal = waktu.toLocaleDateString('id-ID', opsiTanggal);
+            
+            document.getElementById('jam-realtime').innerText = jam;
+            document.getElementById('tanggal-hari-ini').innerText = tanggal;
+        }
+        setInterval(perbaruiWaktu, 1000);
+        perbaruiWaktu();
+
+        // 2. Proses Absensi Utama (DIBUAT INSTAN)
+        async function lakukanAbsen() {
+            const inputNama = document.getElementById('input-nama');
+            const inputInstansi = document.getElementById('input-instansi');
+            const inputJenis = document.getElementById('input-jenis');
+
+            const nama = inputNama.value.trim();
+            const instansi = inputInstansi.value.trim();
+            const jenisAbsen = inputJenis.value; 
+            
+            const tombol = document.getElementById('btn-absen');
+            const statusBox = document.getElementById('status-kehadiran');
+
+            // --- PENGATURAN API ---
+            const IP_KANTOR_SAH = "111.222.333.444"; 
+            const URL_GOOGLE_SHEET = "https://script.google.com/macros/s/AKfycby9lR9X2h5iPuSP843l64qa_mAEPqw2ZyJ6DZmMC4WhFA2So0CIrurtJFLhloZuAlS1zA/exec";
+
+            // Validasi Input
+            if (!nama || !instansi) {
+                tampilkanPesan(statusBox, '❌ Nama dan Asal Kampus wajib diisi!', 'red');
+                return;
+            }
+
+            // Kunci tombol sejenak agar tidak di-spam klik
+            tombol.disabled = true;
+
+            try {
+                // Mendapatkan IP pengguna (ini sangat cepat, biasanya < 0.3 detik)
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const userIP = ipData.ip;
+
+                // Cek IP (Sementara dimatikan untuk dicoba di rumah)
+                /*
+                if (userIP !== IP_KANTOR_SAH) {
+                    tampilkanPesan(statusBox, `❌ <strong>Akses Ditolak!</strong><br>Bukan jaringan kantor.`, 'red');
+                    tombol.disabled = false;
+                    return;
+                }
+                */
+
+                // Menyiapkan Data
+                const formData = new URLSearchParams();
+                formData.append('nama', nama);
+                formData.append('instansi', instansi);
+                formData.append('jenis_absen', jenisAbsen);
+                formData.append('ip', userIP);
+
+                // --- KUNCI KECEPATAN ADA DI SINI ---
+                // Data dikirim ke Google Sheets di latar belakang TANPA ditunggu (tanpa 'await')
+                fetch(URL_GOOGLE_SHEET, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: formData   
+                }).catch(err => console.error("Error Background:", err));
+
+                // --- TAMPILAN INSTAN ---
+                // Langsung muncul hijau dan form langsung kosong
+                tampilkanPesan(statusBox, `✅ <strong>Berhasil!</strong> Absen ${jenisAbsen} atas nama <strong>${nama}</strong> tercatat.`, 'green');
+                
+                inputNama.value = '';
+                inputInstansi.value = '';
+                inputJenis.value = 'Masuk';
+                
+                // Pesan sukses hilang otomatis dalam 2 detik, form siap dipakai orang lain
+                setTimeout(() => {
+                    statusBox.classList.add('hidden');
+                    tombol.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                tampilkanPesan(statusBox, '❌ <strong>Error!</strong> Gagal menghubungi server.', 'red');
+                tombol.disabled = false;
+            }
+        }
+
+        // 3. Fungsi Bantuan Tampilan
+        function tampilkanPesan(elemen, teks, warna) {
+            elemen.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-gray-100', 'text-gray-800');
+            elemen.innerHTML = teks;
+            if (warna === 'red') elemen.classList.add('bg-red-100', 'text-red-800');
+            if (warna === 'green') elemen.classList.add('bg-green-100', 'text-green-800');
+        }
+    </script>
+</body>
+</html>
