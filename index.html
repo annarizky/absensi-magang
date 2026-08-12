@@ -36,7 +36,7 @@
             <!-- Input Instansi -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Asal Kampus / Sekolah</label>
-                <input type="text" id="input-instansi" placeholder="Contoh: Universitas Muhammadiyah Semarang" 
+                <input type="text" id="input-instansi" placeholder="Contoh: Universitas Muhammadiyah Semarang..." 
                     class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
             </div>
 
@@ -98,7 +98,7 @@
 
             // Validasi Input
             if (!nama || !instansi) {
-                tampilkanPesan(statusBox, '❌ Nama dan Asal Kampus wajib diisi!', 'red');
+                tampilkanPesan(statusBox, ' Nama dan Asal Kampus wajib diisi!', 'red');
                 return;
             }
 
@@ -111,14 +111,14 @@
                 const ipData = await ipResponse.json();
                 const userIP = ipData.ip;
 
-                // Cek IP (Sementara dimatikan untuk dicoba di rumah)
-                /*
+               // --- VALIDASI WI-FI KANTOR ---
+                const IP_KANTOR_SAH = "103.101.52.218"; 
+
                 if (userIP !== IP_KANTOR_SAH) {
-                    tampilkanPesan(statusBox, `❌ <strong>Akses Ditolak!</strong><br>Bukan jaringan kantor.`, 'red');
+                    tampilkanPesan(statusBox, `<strong>Akses Ditolak!</strong><br>Kamu sedang menggunakan kuota seluler/Wi-Fi lain. Harap gunakan Wi-Fi kantor.`, 'red');
                     tombol.disabled = false;
-                    return;
+                    return; // Menghentikan proses agar data tidak terkirim
                 }
-                */
 
                 // Menyiapkan Data
                 const formData = new URLSearchParams();
@@ -137,7 +137,7 @@
 
                 // --- TAMPILAN INSTAN ---
                 // Langsung muncul hijau dan form langsung kosong
-                tampilkanPesan(statusBox, `✅ <strong>Berhasil!</strong> Absen ${jenisAbsen} atas nama <strong>${nama}</strong> tercatat.`, 'green');
+                tampilkanPesan(statusBox, ` <strong>Berhasil!</strong> Absen ${jenisAbsen} atas nama <strong>${nama}</strong> tercatat.`, 'green');
                 
                 inputNama.value = '';
                 inputInstansi.value = '';
@@ -150,7 +150,7 @@
                 }, 2000);
 
             } catch (error) {
-                tampilkanPesan(statusBox, '❌ <strong>Error!</strong> Gagal menghubungi server.', 'red');
+                tampilkanPesan(statusBox, ' <strong>Error!</strong> Gagal menghubungi server.', 'red');
                 tombol.disabled = false;
             }
         }
