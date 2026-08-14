@@ -5,8 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Presensi Magang</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* TAMBAHAN: CSS untuk membalik preview kamera agar TIDAK MIRROR */
+        #kamera-preview {
+            transform: scaleX(-1);
+            -webkit-transform: scaleX(-1);
+        }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex justify-center items-center font-sans p-4">
+<!-- TAMBAHAN: onload="nyalakanKamera()" agar kamera otomatis hidup -->
+<body class="bg-slate-100 min-h-screen flex justify-center items-center font-sans p-4" onload="nyalakanKamera()">
 
     <!-- Card Container -->
     <div class="bg-white w-full max-w-sm p-8 rounded-2xl shadow-lg text-center">
@@ -21,6 +29,15 @@
         <div class="mb-6 border-b pb-6">
             <h1 id="jam-realtime" class="text-4xl font-black text-slate-800 tracking-wider">00:00:00</h1>
             <p id="tanggal-hari-ini" class="text-sm text-slate-500 mt-2">Tanggal</p>
+        </div>
+
+        <!-- TAMBAHAN: TAMPILAN KAMERA (LIVE PREVIEW) -->
+        <div class="mb-6 relative w-full h-48 bg-black rounded-xl overflow-hidden shadow-inner">
+            <video id="kamera-preview" autoplay playsinline class="w-full h-full object-cover"></video>
+            <canvas id="canvas-foto" class="hidden"></canvas>
+            <div class="absolute bottom-2 left-0 right-0 text-center text-white text-[10px] bg-black/50 py-1">
+                Posisi Wajah Harus Terlihat Jelas
+            </div>
         </div>
 
         <!-- FORM INPUT MANUAL -->
@@ -66,6 +83,20 @@
 
     <!-- Logika JavaScript -->
     <script>
+        // TAMBAHAN: Fungsi Menyalakan Kamera Depan
+        async function nyalakanKamera() {
+            try {
+                const video = document.getElementById('kamera-preview');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" },
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                alert("Gagal mengakses kamera! Pastikan izin kamera di browser sudah diaktifkan.");
+            }
+        }
+
         // 1. Jam Realtime
         function perbaruiWaktu() {
             const waktu = new Date();
@@ -92,7 +123,7 @@
             const tombol = document.getElementById('btn-absen');
             const statusBox = document.getElementById('status-kehadiran');
 
-            // --- PENGATURAN API ---
+            // --- PENGATURAN API TETAP UTUH ---
             const IP_KANTOR_SAH = "111.222.333.444"; 
             const URL_GOOGLE_SHEET = "https://script.google.com/macros/s/AKfycbx1BgDHICSYMoDQzViM6xwwncbwi8Rw2pglWzf70DuTAbx3_DJOXkGE1mMW3_gbv2oD/exec";
 
@@ -104,21 +135,38 @@
 
             // Kunci tombol sejenak agar tidak di-spam klik
             tombol.disabled = true;
+            tombol.innerText = "Memproses...";
 
             try {
-                // Mendapatkan IP pengguna (ini sangat cepat, biasanya < 0.3 detik)
+                // Mendapatkan IP pengguna
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
                 const userIP = ipData.ip;
 
-               // --- VALIDASI WI-FI KANTOR ---
-                const IP_KANTOR_SAH = "103.101.52.218"; 
+                // --- VALIDASI WI-FI KANTOR TETAP UTUH ---
+                const IP_KANTOR_AKTIF = "103.101.52.218"; 
 
-                if (userIP !== IP_KANTOR_SAH) {
+                if (userIP !== IP_KANTOR_AKTIF) {
                     tampilkanPesan(statusBox, `<strong>Akses Ditolak!</strong><br>Kamu sedang menggunakan kuota seluler/Wi-Fi lain. Harap gunakan Wi-Fi kantor.`, 'red');
                     tombol.disabled = false;
-                    return; // Menghentikan proses agar data tidak terkirim
+                    tombol.innerText = "Kirim";
+                    return; 
                 }
+
+                // TAMBAHAN: PROSES TANGKAP FOTO ANTI-MIRROR
+                const video = document.getElementById('kamera-preview');
+                const canvas = document.getElementById('canvas-foto');
+                canvas.width = video.videoWidth || 320;
+                canvas.height = video.videoHeight || 240;
+                const ctx = canvas.getContext('2d');
+                
+                // Membalikkan gambar agar hasil fotonya TIDAK mirror
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Ubah gambar ke format teks (base64)
+                const fotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
 
                 // Menyiapkan Data
                 const formData = new URLSearchParams();
@@ -126,9 +174,9 @@
                 formData.append('instansi', instansi);
                 formData.append('jenis_absen', jenisAbsen);
                 formData.append('ip', userIP);
+                formData.append('foto', fotoBase64); // Data foto disisipkan ke sini
 
                 // --- KUNCI KECEPATAN ADA DI SINI ---
-                // Data dikirim ke Google Sheets di latar belakang TANPA ditunggu (tanpa 'await')
                 fetch(URL_GOOGLE_SHEET, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -136,22 +184,22 @@
                 }).catch(err => console.error("Error Background:", err));
 
                 // --- TAMPILAN INSTAN ---
-                // Langsung muncul hijau dan form langsung kosong
                 tampilkanPesan(statusBox, ` <strong>Berhasil!</strong> Absen ${jenisAbsen} atas nama <strong>${nama}</strong> tercatat.`, 'green');
                 
                 inputNama.value = '';
                 inputInstansi.value = '';
                 inputJenis.value = 'Masuk';
                 
-                // Pesan sukses hilang otomatis dalam 2 detik, form siap dipakai orang lain
                 setTimeout(() => {
                     statusBox.classList.add('hidden');
                     tombol.disabled = false;
+                    tombol.innerText = "Kirim";
                 }, 2000);
 
             } catch (error) {
-                tampilkanPesan(statusBox, ' <strong>Error!</strong> Gagal menghubungi server.', 'red');
+                tampilkanPesan(statusBox, ' <strong>Error!</strong> Gagal menghubungi server atau kamera.', 'red');
                 tombol.disabled = false;
+                tombol.innerText = "Kirim";
             }
         }
 
