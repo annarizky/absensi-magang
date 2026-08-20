@@ -6,14 +6,13 @@
     <title>Presensi Magang</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* TAMBAHAN: CSS untuk membalik preview kamera agar TIDAK MIRROR */
+        /* CSS untuk membalik preview kamera agar TIDAK MIRROR */
         #kamera-preview {
             transform: scaleX(-1);
             -webkit-transform: scaleX(-1);
         }
     </style>
 </head>
-<!-- TAMBAHAN: onload="nyalakanKamera()" agar kamera otomatis hidup -->
 <body class="bg-slate-100 min-h-screen flex justify-center items-center font-sans p-4" onload="nyalakanKamera()">
 
     <!-- Card Container -->
@@ -27,11 +26,11 @@
         
         <!-- Waktu Real-time -->
         <div class="mb-6 border-b pb-6">
-            <h1 id="jam-realtime" class="text-4xl font-black text-slate-800 tracking-wider">00:00:00</h1>
+            <h1 id="jam-realtime" class="text-4xl font-black text-slate-800 tracking-wider transition-colors duration-300">00:00:00</h1>
             <p id="tanggal-hari-ini" class="text-sm text-slate-500 mt-2">Tanggal</p>
         </div>
 
-        <!-- TAMBAHAN: TAMPILAN KAMERA (LIVE PREVIEW) -->
+        <!-- TAMPILAN KAMERA (LIVE PREVIEW) -->
         <div class="mb-6 relative w-full h-48 bg-black rounded-xl overflow-hidden shadow-inner">
             <video id="kamera-preview" autoplay playsinline class="w-full h-full object-cover"></video>
             <canvas id="canvas-foto" class="hidden"></canvas>
@@ -40,27 +39,43 @@
             </div>
         </div>
 
-        <!-- FORM INPUT MANUAL -->
+        <!-- FORM INPUT PILIHAN (3 TINGKAT) -->
         <div class="text-left mb-6 space-y-4">
             
-            <!-- Input Nama -->
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
-                <input type="text" id="input-nama" placeholder="Contoh: Budi Prakoso" 
-                    class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
-            </div>
-
-            <!-- Input Instansi -->
+            <!-- 1. Input Instansi -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Asal Kampus / Sekolah</label>
-                <input type="text" id="input-instansi" placeholder="Contoh: Universitas Muhammadiyah Semarang..." 
-                    class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
+                <select id="input-instansi" onchange="updateDaftarJurusan()" class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none cursor-pointer">
+                    <option value="" disabled selected>Pilih Instansi</option>
+                    <option value="Universitas Sains & Teknologi komputer">Universitas Sains & Teknologi komputer</option>
+                    <option value="SMK MATARAM SEMARANG">SMK MATARAM SEMARANG</option>
+                    <option value="SMK SETIABUDHI SEMARANG">SMK SETIABUDHI SEMARANG</option>
+                    <option value="Politeknik Negeri Semarang">Politeknik Negeri Semarang</option>
+                    <option value="Univesitas Muhammadiyah Semarang">Univesitas Muhammadiyah Semarang</option>
+                     <option value="Universitas Sains Teknologi Digital Indonesia">Universitas Sains Teknologi Digital Indonesia</option>
+                </select>
             </div>
 
-            <!-- Pilihan Jenis Absen -->
+            <!-- 2. Input Jurusan -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Jurusan / Program Studi</label>
+                <select id="input-jurusan" onchange="updateDaftarNama()" disabled class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none cursor-pointer disabled:bg-gray-200 disabled:cursor-not-allowed">
+                    <option value="" disabled selected>Pilih Instansi Terlebih Dahulu</option>
+                </select>
+            </div>
+
+            <!-- 3. Input Nama -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
+                <select id="input-nama" disabled class="w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none cursor-pointer disabled:bg-gray-200 disabled:cursor-not-allowed">
+                    <option value="" disabled selected>Pilih Jurusan Terlebih Dahulu</option>
+                </select>
+            </div>
+
+            <!-- 4. Pilihan Jenis Absen (TAMBAHAN ONCHANGE) -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Jenis Presensi</label>
-                <select id="input-jenis" class="w-full p-2.5 bg-blue-50 border border-blue-300 text-blue-900 font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none">
+                <select id="input-jenis" onchange="perbaruiWaktu()" class="w-full p-2.5 bg-blue-50 border border-blue-300 text-blue-900 font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none cursor-pointer">
                     <option value="Masuk">Masuk</option>
                     <option value="Pulang">Pulang</option>
                 </select>
@@ -83,7 +98,74 @@
 
     <!-- Logika JavaScript -->
     <script>
-        // TAMBAHAN: Fungsi Menyalakan Kamera Depan
+        // --- DATABASE ANAK MAGANG (3 TINGKAT) ---
+        const dataMahasiswa = {
+            "Universitas Sains & Teknologi komputer": {
+                "Teknik Informatika": ["Aiga Aina Maaftuha", "Salsabila Taqwa Prenjana"],
+            },
+            "SMK MATARAM SEMARANG": {
+                "Tekhnik Kendaraan Ringan": ["Fajar Wibowo", "Pakalis Marcho Dwitama,Dimas Ardiansyah", "Muhammad Arwo Ardhiansyah"],
+            },
+            "SMK SETIABUDHI SEMARANG": {
+                "Manajemen Perkantoran": ["Alena Putri Dara Bunga", "Agung Pratama", "Yulius Hendro"],
+            },
+            "Politeknik Negeri Semarang": {
+                "Perbankan Syariah": ["Jesssica Fangestika Saat", "Indana Maulidatu Zulfa", "Dyana Aida Surya Haryatna"],
+            },
+               "Univesitas Muhammadiyah Semarang": {
+                "Informatika": ["Satria Handika", "Putriana Nur Ayu Rizkiani", "Rifki Adi Himawan", "Annarizky Nifa Diana Putri", "Najwa Salsabila"],
+            },
+                 "Universitas Sains Teknologi Digital Indonesia": {
+                "Manajemen": ["Yulianus Yogi Pratama", "Desi Natalia", "Maria Bernadetha Eva Maharani"],
+            }
+        };
+
+        // FUNGSI 1: Munculkan Jurusan saat Kampus dipilih
+        function updateDaftarJurusan() {
+            const instansi = document.getElementById('input-instansi').value;
+            const dropdownJurusan = document.getElementById('input-jurusan');
+            const dropdownNama = document.getElementById('input-nama');
+
+            dropdownJurusan.innerHTML = '<option value="" disabled selected>Pilih Jurusan</option>';
+            dropdownNama.innerHTML = '<option value="" disabled selected>Pilih Jurusan Terlebih Dahulu</option>';
+            dropdownNama.disabled = true;
+
+            if (instansi && dataMahasiswa[instansi]) {
+                dropdownJurusan.disabled = false;
+                const daftarJurusan = Object.keys(dataMahasiswa[instansi]);
+                daftarJurusan.forEach(jurusan => {
+                    const option = document.createElement("option");
+                    option.value = jurusan;
+                    option.text = jurusan;
+                    dropdownJurusan.appendChild(option);
+                });
+            } else {
+                dropdownJurusan.disabled = true;
+            }
+        }
+
+        // FUNGSI 2: Munculkan Nama saat Jurusan dipilih
+        function updateDaftarNama() {
+            const instansi = document.getElementById('input-instansi').value;
+            const jurusan = document.getElementById('input-jurusan').value;
+            const dropdownNama = document.getElementById('input-nama');
+
+            dropdownNama.innerHTML = '<option value="" disabled selected>Pilih Nama</option>';
+
+            if (instansi && jurusan && dataMahasiswa[instansi][jurusan]) {
+                dropdownNama.disabled = false;
+                dataMahasiswa[instansi][jurusan].forEach(nama => {
+                    const option = document.createElement("option");
+                    option.value = nama;
+                    option.text = nama;
+                    dropdownNama.appendChild(option);
+                });
+            } else {
+                dropdownNama.disabled = true;
+            }
+        }
+
+        // Fungsi Menyalakan Kamera Depan
         async function nyalakanKamera() {
             try {
                 const video = document.getElementById('kamera-preview');
@@ -97,53 +179,70 @@
             }
         }
 
-        // 1. Jam Realtime
+        // FUNGSI 3: Jam Realtime & Pengecekan Keterlambatan
         function perbaruiWaktu() {
             const waktu = new Date();
             const jam = waktu.toLocaleTimeString('id-ID', { hour12: false });
             const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             const tanggal = waktu.toLocaleDateString('id-ID', opsiTanggal);
             
-            document.getElementById('jam-realtime').innerText = jam;
+            const jamElement = document.getElementById('jam-realtime');
+            const jenisAbsen = document.getElementById('input-jenis').value;
+            
+            // Masukkan teks jam dan tanggal ke HTML
+            jamElement.innerText = jam;
             document.getElementById('tanggal-hari-ini').innerText = tanggal;
+
+            // Logika Telat (Jika lewat jam 08:00 dan sedang absen "Masuk")
+            const jamSekarang = waktu.getHours();
+            const menitSekarang = waktu.getMinutes();
+            
+            const apakahTelat = (jamSekarang > 8 || (jamSekarang === 8 && menitSekarang > 0)) && jenisAbsen === "Masuk";
+
+            if (apakahTelat) {
+                // Berubah jadi merah jika telat
+                jamElement.classList.remove('text-slate-800');
+                jamElement.classList.add('text-red-600');
+            } else {
+                // Kembali normal hitam jika aman atau absen pulang
+                jamElement.classList.remove('text-red-600');
+                jamElement.classList.add('text-slate-800');
+            }
         }
         setInterval(perbaruiWaktu, 1000);
         perbaruiWaktu();
 
-        // 2. Proses Absensi Utama (DIBUAT INSTAN)
+        // Proses Absensi Utama
         async function lakukanAbsen() {
-            const inputNama = document.getElementById('input-nama');
             const inputInstansi = document.getElementById('input-instansi');
+            const inputJurusan = document.getElementById('input-jurusan');
+            const inputNama = document.getElementById('input-nama');
             const inputJenis = document.getElementById('input-jenis');
 
-            const nama = inputNama.value.trim();
-            const instansi = inputInstansi.value.trim();
+            const instansi = inputInstansi.value;
+            const jurusan = inputJurusan.value;
+            const nama = inputNama.value;
             const jenisAbsen = inputJenis.value; 
             
             const tombol = document.getElementById('btn-absen');
             const statusBox = document.getElementById('status-kehadiran');
 
-            // --- PENGATURAN API TETAP UTUH ---
-            const IP_KANTOR_SAH = "111.222.333.444"; 
             const URL_GOOGLE_SHEET = "https://script.google.com/macros/s/AKfycbx1BgDHICSYMoDQzViM6xwwncbwi8Rw2pglWzf70DuTAbx3_DJOXkGE1mMW3_gbv2oD/exec";
 
             // Validasi Input
-            if (!nama || !instansi) {
-                tampilkanPesan(statusBox, ' Nama dan Asal Kampus wajib diisi!', 'red');
+            if (!instansi || !jurusan || !nama) {
+                tampilkanPesan(statusBox, ' Data Kampus, Jurusan, dan Nama wajib dipilih!', 'red');
                 return;
             }
 
-            // Kunci tombol sejenak agar tidak di-spam klik
             tombol.disabled = true;
             tombol.innerText = "Memproses...";
 
             try {
-                // Mendapatkan IP pengguna
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
                 const userIP = ipData.ip;
 
-                // --- VALIDASI WI-FI KANTOR TETAP UTUH ---
                 const IP_KANTOR_AKTIF = "103.101.52.218"; 
 
                 if (userIP !== IP_KANTOR_AKTIF) {
@@ -153,42 +252,47 @@
                     return; 
                 }
 
-                // TAMBAHAN: PROSES TANGKAP FOTO ANTI-MIRROR
+                // Proses Tangkap Foto Anti-Mirror
                 const video = document.getElementById('kamera-preview');
                 const canvas = document.getElementById('canvas-foto');
                 canvas.width = video.videoWidth || 320;
                 canvas.height = video.videoHeight || 240;
                 const ctx = canvas.getContext('2d');
                 
-                // Membalikkan gambar agar hasil fotonya TIDAK mirror
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                // Ubah gambar ke format teks (base64)
                 const fotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
 
-                // Menyiapkan Data
+                const instansiLengkap = instansi + " - " + jurusan;
+
                 const formData = new URLSearchParams();
                 formData.append('nama', nama);
-                formData.append('instansi', instansi);
+                formData.append('instansi', instansiLengkap);
                 formData.append('jenis_absen', jenisAbsen);
                 formData.append('ip', userIP);
-                formData.append('foto', fotoBase64); // Data foto disisipkan ke sini
+                formData.append('foto', fotoBase64); 
 
-                // --- KUNCI KECEPATAN ADA DI SINI ---
                 fetch(URL_GOOGLE_SHEET, {
                     method: 'POST',
                     mode: 'no-cors',
                     body: formData   
                 }).catch(err => console.error("Error Background:", err));
 
-                // --- TAMPILAN INSTAN ---
                 tampilkanPesan(statusBox, ` <strong>Berhasil!</strong> Absen ${jenisAbsen} atas nama <strong>${nama}</strong> tercatat.`, 'green');
                 
-                inputNama.value = '';
+                // --- RESET KEMBALI KE KONDISI AWAL ---
                 inputInstansi.value = '';
+                
+                inputJurusan.innerHTML = '<option value="" disabled selected>Pilih Instansi Terlebih Dahulu</option>';
+                inputJurusan.disabled = true;
+                
+                inputNama.innerHTML = '<option value="" disabled selected>Pilih Jurusan Terlebih Dahulu</option>';
+                inputNama.disabled = true; 
+                
                 inputJenis.value = 'Masuk';
+                perbaruiWaktu(); // Panggil fungsi ini agar jam kembali normal setelah di-reset
                 
                 setTimeout(() => {
                     statusBox.classList.add('hidden');
@@ -203,7 +307,7 @@
             }
         }
 
-        // 3. Fungsi Bantuan Tampilan
+        // Fungsi Bantuan Tampilan
         function tampilkanPesan(elemen, teks, warna) {
             elemen.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-gray-100', 'text-gray-800');
             elemen.innerHTML = teks;
